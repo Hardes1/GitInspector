@@ -7,6 +7,6 @@ private val SEMANTIC_MERGE_PATH = "$BASE_PATH/semantic-merge"
 private val FABRIC_PATH = "$BASE_PATH/fabric"
 
 fun main() {
-    ConflictSearcher().search(SEMANTIC_MERGE_PATH)
+    ConflictSearcher().search(FABRIC_PATH)
 }
 

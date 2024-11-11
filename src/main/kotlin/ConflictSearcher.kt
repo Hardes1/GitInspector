@@ -2,11 +2,14 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.Sequence
 import org.eclipse.jgit.lib.ObjectId
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.merge.MergeChunk
 import org.eclipse.jgit.merge.MergeResult
 import org.eclipse.jgit.merge.MergeStrategy
 import org.eclipse.jgit.merge.ResolveMerger
 import org.eclipse.jgit.revwalk.RevCommit
+import org.eclipse.jgit.revwalk.RevTree
+import org.eclipse.jgit.treewalk.TreeWalk
 import org.slf4j.LoggerFactory
 import java.io.File
 import kotlin.math.max
@@ -27,10 +30,30 @@ class ConflictSearcher {
                 LOG.debug("Merge conflict found")
                 val conflictDirName = createFolderForConflicts(path, commit.name)
                 val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
+                writeContents(repository, commit.tree, mergeResult.keys, conflictDirName)
                 writeConflicts(conflictDirName, mergeResult)
             }
         }
     }
+
+    private fun writeContents(
+        repository: Repository,
+        tree: RevTree,
+        paths: Set<String>,
+        conflictDirName: String
+    ): Unit =
+        TreeWalk(repository).use { treeWalk ->
+            treeWalk.addTree(tree)
+            treeWalk.isRecursive = true
+
+            while (treeWalk.next()) {
+                if (treeWalk.pathString !in paths) continue
+                val loader = repository.open(treeWalk.getObjectId(0))
+                val content = String(loader.bytes)
+                val file = createDataFile(treeWalk.pathString, conflictDirName, RevisionType.RESULT)
+                file.writeText(content)
+            }
+        }
 
     private fun getParentObjects(commit: RevCommit): Pair<ObjectId, ObjectId> {
         return commit.getParent(0).toObjectId() to commit.getParent(1).toObjectId()
@@ -39,9 +62,7 @@ class ConflictSearcher {
     private fun writeConflicts(conflictDirName: String, mergeResults: Map<String, MergeResult<out Sequence>>) {
         for ((path, mergeResult) in mergeResults) {
             LOG.debug("Path: $path")
-            val conflictFile = File("$conflictDirName/$path")
-            conflictFile.parentFile.mkdirs()
-            conflictFile.createNewFile()
+            val conflictFile = createDataFile(path, conflictDirName, RevisionType.CONFLICT)
 
             val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
 
@@ -57,11 +78,20 @@ class ConflictSearcher {
                 )
                 if (chunk.conflictState == MergeChunk.ConflictState.NO_CONFLICT) continue
                 LOG.debug("Add conflict to file:")
-                conflictFile.appendText("==== ${chunk.getPresentableRevisionType()} ==== \n")
+                conflictFile.appendText("==== ${chunk.getPresentableRevisionType()} (${begin}, ${end}) ==== \n")
                 conflictFile.appendText(sequences[chunk.sequenceIndex].getString(begin, end, false))
                 conflictFile.appendText("==== ${chunk.getPresentableRevisionType()} ==== \n")
             }
         }
+    }
+
+    private fun createDataFile(path: String, conflictDirName: String, revisionType: RevisionType): File {
+        val directoryName = PathUtils.getDirectoryName(path)
+        val filename = PathUtils.getFilename(path)
+        val conflictFile = File("$conflictDirName/${directoryName.orEmpty()}${revisionType.prefix}-$filename")
+        conflictFile.parentFile.mkdirs()
+        conflictFile.createNewFile()
+        return conflictFile
     }
 
     private fun MergeChunk.getPresentableRevisionType() = when (sequenceIndex) {
@@ -72,7 +102,7 @@ class ConflictSearcher {
     }
 
     private fun createFolderForConflicts(path: String, commitName: String): String {
-        val repoName = PathUtils.getRepoName(path)
+        val repoName = PathUtils.getFilename(path)
         val conflictDirPath = "./data/$repoName/conflicts/$commitName"
         val folder = File(conflictDirPath)
         if (folder.exists()) {
