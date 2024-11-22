@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run search" type="JetRunConfigurationType">
+    <log_file alias="status" path="$PROJECT_DIR$/logs/status.log" skipped="false" />
+    <option name="MAIN_CLASS_NAME" value="MainKt" />
+    <module name="GitMergeConflictSearcher.main" />
+    <option name="PROGRAM_PARAMETERS" value="--url=https://github.com/spring-projects/spring-petclinic.git" />
+    <shortenClasspath name="NONE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
