@@ -6,8 +6,7 @@ object URIUtils {
     fun isValid(uri: String?): Boolean = try {
         URI(uri)
         true
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         false
     }
-
 }

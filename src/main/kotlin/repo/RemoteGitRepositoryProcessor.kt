@@ -1,28 +1,30 @@
 package repo
 
 import org.eclipse.jgit.api.Git
+import util.GitUtils
 import util.URIUtils
 import java.io.File
+
+
 import java.nio.file.Path
-
-
-private const val PREFIX_PATH = "./repo/"
+import kotlin.io.path.Path
 
 class RemoteGitRepositoryProcessor(val url: String) : GitRepositoryProcessor() {
-    private val file : File
-
-    init {
-        if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
-        file = File(PREFIX_PATH)
-        if (!file.exists()) file.mkdirs()
-    }
+    private var file : File? = null
 
     override fun fetch(): Path {
+        if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
+        val repoName = GitUtils.getRepositoryName(url)
+        val path = Path(".", "repositories", repoName)
+        val file = path.toFile()
+        if (!file.exists()) {
+            file.mkdirs()
+        }
         Git.cloneRepository().setURI(url).setDirectory(file).call()
-        return file.toPath()
+        return path
     }
 
     override fun close() {
-        file.deleteRecursively()
+        file?.deleteRecursively()
     }
 }

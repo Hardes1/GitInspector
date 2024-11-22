@@ -17,6 +17,7 @@ import util.PathUtils
 import java.io.File
 import java.nio.file.Path
 import kotlin.collections.iterator
+import kotlin.io.path.Path
 import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.math.max
@@ -28,7 +29,10 @@ object ConflictSearcher {
     fun search(path: Path) {
         val git = Git.open(File(path.pathString))
         val repository = git.repository
-        git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }.forEach { commit ->
+        var commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
+        LOG.info("Found ${commitList.size} merge commits")
+        commitList.forEachIndexed { idx, commit ->
+            LOG.info("Processing $idx / ${commitList.size} commit")
             LOG.debug("Name: {}, Message: {}", commit.name, commit.fullMessage)
             val (leftParent, rightParent) = getParentObjects(commit)
             val merger =
@@ -47,7 +51,7 @@ object ConflictSearcher {
         repository: Repository,
         tree: RevTree,
         paths: Set<String>,
-        conflictDirName: String
+        conflictDir: File
     ): Unit =
         TreeWalk(repository).use { treeWalk ->
             treeWalk.addTree(tree)
@@ -57,7 +61,7 @@ object ConflictSearcher {
                 if (treeWalk.pathString !in paths) continue
                 val loader = repository.open(treeWalk.getObjectId(0))
                 val content = String(loader.bytes)
-                val file = createDataFile(treeWalk.pathString, conflictDirName, RevisionType.RESULT)
+                val file = createDataFile(treeWalk.pathString, conflictDir, RevisionType.RESULT)
                 file.writeText(content)
             }
         }
@@ -66,10 +70,10 @@ object ConflictSearcher {
         return commit.getParent(0).toObjectId() to commit.getParent(1).toObjectId()
     }
 
-    private fun writeConflicts(conflictDirName: String, mergeResults: Map<String, MergeResult<out Sequence>>) {
+    private fun writeConflicts(conflictDir: File, mergeResults: Map<String, MergeResult<out Sequence>>) {
         for ((path, mergeResult) in mergeResults) {
             LOG.debug("Path: $path")
-            val conflictFile = createDataFile(path, conflictDirName, RevisionType.CONFLICT)
+            val conflictFile = createDataFile(path, conflictDir, RevisionType.CONFLICT)
 
             val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
 
@@ -92,10 +96,10 @@ object ConflictSearcher {
         }
     }
 
-    private fun createDataFile(path: String, conflictDirName: String, revisionType: RevisionType): File {
+    private fun createDataFile(path: String, conflictDir: File, revisionType: RevisionType): File {
         val directoryName = PathUtils.getDirectoryName(path)
         val filename = PathUtils.getFilename(path)
-        val conflictFile = File("$conflictDirName/${directoryName.orEmpty()}${revisionType.prefix}-$filename")
+        val conflictFile = File(conflictDir, "${directoryName.orEmpty()}${revisionType.prefix}-$filename")
         conflictFile.parentFile.mkdirs()
         conflictFile.createNewFile()
         return conflictFile
@@ -108,14 +112,14 @@ object ConflictSearcher {
         else -> throw IllegalStateException("Unexpected sequence index")
     }
 
-    private fun createFolderForConflicts(path: String, commitName: String): String {
+    private fun createFolderForConflicts(path: String, commitName: String): File {
         val repoName = PathUtils.getFilename(path)
-        val conflictDirPath = "./data/$repoName/conflicts/$commitName"
-        val folder = File(conflictDirPath)
+        val conflictDirPath = Path(".", "data", repoName, "conflicts", commitName)
+        val folder = File(conflictDirPath.pathString)
         if (folder.exists()) {
             folder.deleteRecursively()
         }
         folder.mkdirs()
-        return conflictDirPath
+        return folder
     }
 }
