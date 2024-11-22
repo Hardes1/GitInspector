@@ -1,5 +1,9 @@
 package conflict
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.Sequence
@@ -16,6 +20,7 @@ import org.slf4j.LoggerFactory
 import util.PathUtils
 import java.io.File
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.iterator
 import kotlin.io.path.Path
 import kotlin.io.path.name
@@ -31,8 +36,28 @@ object ConflictSearcher {
         val repository = git.repository
         var commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
         LOG.info("Found ${commitList.size} merge commits")
-        commitList.forEachIndexed { idx, commit ->
-            LOG.info("Processing $idx / ${commitList.size} commit")
+        runBlocking {
+            val jobList : MutableList<Job> = mutableListOf()
+            val iteration = AtomicInteger(0)
+            commitList.chunked(commitList.size / 64).forEach { chunk ->
+                val job = launch(Dispatchers.IO) {
+                    processChunk(chunk, repository, path, iteration, commitList.size)
+                }
+                jobList.add(job)
+            }
+            jobList.forEach { it.join() }
+        }
+    }
+
+    private fun processChunk(
+        commitList: List<RevCommit>,
+        repository: Repository,
+        path: Path,
+        step: AtomicInteger,
+        totalSize: Int
+    ) {
+        commitList.forEach { commit ->
+            LOG.info("Processing ${step.incrementAndGet()} out $totalSize commits.")
             LOG.debug("Name: {}, Message: {}", commit.name, commit.fullMessage)
             val (leftParent, rightParent) = getParentObjects(commit)
             val merger =
