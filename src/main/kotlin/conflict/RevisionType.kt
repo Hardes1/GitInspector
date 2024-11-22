@@ -1,3 +1,5 @@
+package conflict
+
 enum class RevisionType(val prefix: String) {
     RESULT("result"),
     OURS("ours"),

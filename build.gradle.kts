@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+    implementation("com.github.ajalt.clikt:clikt:5.0.1")
     testImplementation(kotlin("test"))
     // https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit
     implementation("org.eclipse.jgit:org.eclipse.jgit:7.0.0.202409031743-r")

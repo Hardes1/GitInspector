@@ -1,12 +1,33 @@
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.options.option
+import com.sun.tools.javac.tree.TreeInfo.args
+import repo.LocalGitRepositoryProcessor
+import repo.RemoteGitRepositoryProcessor
+import java.io.File
 
 
-private val BASE_PATH = "${System.getProperty("user.home")}/Workspace/IdeaProjects/repo-with-conflicts"
+class Main : CliktCommand() {
+    val localPath: String? by option("--path", "-p", help = "Local path to git repository")
+    val url: String? by option("--url", "-u", help = "URL to git repository in github")
 
-private val GRADLE_PATH = "$BASE_PATH/gradle"
-private val SEMANTIC_MERGE_PATH = "$BASE_PATH/semantic-merge"
-private val FABRIC_PATH = "$BASE_PATH/fabric"
+    override fun run() {
+        if (localPath != null && url != null) {
+            throw IllegalArgumentException("You should provide either local path or url")
+            return
+        }
+        if (localPath == null && url == null) {
+            throw IllegalArgumentException("You should provide either local path or url")
+        }
+        val processor = if (localPath != null) {
+            LocalGitRepositoryProcessor(localPath!!)
+        } else {
+            RemoteGitRepositoryProcessor(url!!)
+        }
+        processor.run()
+    }
 
-fun main() {
-    ConflictSearcher().search(FABRIC_PATH)
 }
+
+fun main(args: Array<String>) = Main().main(args)
 

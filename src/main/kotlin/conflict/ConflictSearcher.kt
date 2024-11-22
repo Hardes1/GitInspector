@@ -1,3 +1,5 @@
+package conflict
+
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.Sequence
@@ -11,15 +13,20 @@ import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.revwalk.RevTree
 import org.eclipse.jgit.treewalk.TreeWalk
 import org.slf4j.LoggerFactory
+import util.PathUtils
 import java.io.File
+import java.nio.file.Path
+import kotlin.collections.iterator
+import kotlin.io.path.name
+import kotlin.io.path.pathString
 import kotlin.math.max
 
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 
-class ConflictSearcher {
-    fun search(path: String) {
-        val git = Git.open(File(path))
+object ConflictSearcher {
+    fun search(path: Path) {
+        val git = Git.open(File(path.pathString))
         val repository = git.repository
         git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }.forEach { commit ->
             LOG.debug("Name: {}, Message: {}", commit.name, commit.fullMessage)
@@ -28,7 +35,7 @@ class ConflictSearcher {
                 MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
             if (!merger.merge(leftParent, rightParent)) {
                 LOG.debug("Merge conflict found")
-                val conflictDirName = createFolderForConflicts(path, commit.name)
+                val conflictDirName = createFolderForConflicts(path.name, commit.name)
                 val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
                 writeContents(repository, commit.tree, mergeResult.keys, conflictDirName)
                 writeConflicts(conflictDirName, mergeResult)
