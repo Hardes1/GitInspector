@@ -13,13 +13,7 @@ abstract class GitRepositoryProcessor {
         LOG.info("Searching conflicts")
         ConflictSearcher.search(path)
         LOG.info("Pruning the repository")
-        close()
     }
 
     abstract fun fetch() : Path
-
-    protected open fun close() {
-    }
-
-
 }
