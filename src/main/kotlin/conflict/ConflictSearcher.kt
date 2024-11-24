@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.RawText
 import org.eclipse.jgit.diff.Sequence
@@ -26,6 +27,7 @@ import kotlin.io.path.Path
 import kotlin.io.path.name
 import kotlin.io.path.pathString
 import kotlin.math.max
+import kotlin.math.min
 
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
@@ -34,13 +36,14 @@ object ConflictSearcher {
     fun search(path: Path) {
         val git = Git.open(File(path.pathString))
         val repository = git.repository
-        var commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
-        LOG.info("Found ${commitList.size} merge commits")
         runBlocking {
-            val jobList : MutableList<Job> = mutableListOf()
+            val commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
+            LOG.info("Found ${commitList.size} merge commits")
+
+            val jobList: MutableList<Job> = mutableListOf()
             val iteration = AtomicInteger(0)
-            commitList.chunked(commitList.size / 64).forEach { chunk ->
-                val job = launch(Dispatchers.IO) {
+            commitList.chunked(commitList.size / min(commitList.size, 32)).forEach { chunk ->
+                val job = launch(Dispatchers.Default) {
                     processChunk(chunk, repository, path, iteration, commitList.size)
                 }
                 jobList.add(job)
@@ -49,7 +52,7 @@ object ConflictSearcher {
         }
     }
 
-    private fun processChunk(
+    private suspend fun processChunk(
         commitList: List<RevCommit>,
         repository: Repository,
         path: Path,
@@ -95,28 +98,55 @@ object ConflictSearcher {
         return commit.getParent(0).toObjectId() to commit.getParent(1).toObjectId()
     }
 
-    private fun writeConflicts(conflictDir: File, mergeResults: Map<String, MergeResult<out Sequence>>) {
-        for ((path, mergeResult) in mergeResults) {
-            LOG.debug("Path: $path")
-            val conflictFile = createDataFile(path, conflictDir, RevisionType.CONFLICT)
+    private suspend fun writeConflicts(conflictDir: File, mergeResults: Map<String, MergeResult<out Sequence>>) =
+        withContext(Dispatchers.IO) {
+            for ((path, mergeResult) in mergeResults) {
+                LOG.debug("Path: $path")
+                val conflictFile = createDataFile(path, conflictDir, RevisionType.CONFLICT)
 
-            val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
+                val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
 
-            for (chunk in mergeResult) {
-                val begin = chunk.begin
-                val end = max(chunk.end, begin)
-                LOG.debug(
-                    "chunk state: {}, sequence: {}, begin: {}, end: {}",
-                    chunk.conflictState,
-                    chunk.sequenceIndex,
-                    chunk.begin,
-                    chunk.end
-                )
-                if (chunk.conflictState == MergeChunk.ConflictState.NO_CONFLICT) continue
-                LOG.debug("Add conflict to file:")
-                conflictFile.appendText("==== ${chunk.getPresentableRevisionType()} (${begin}, ${end}) ==== \n")
-                conflictFile.appendText(sequences[chunk.sequenceIndex].getString(begin, end, false))
-                conflictFile.appendText("==== ${chunk.getPresentableRevisionType()} ==== \n")
+                for (chunk in mergeResult) {
+                    val begin = chunk.begin
+                    val end = max(chunk.end, begin)
+                    LOG.debug(
+                        "chunk state: {}, sequence: {}, begin: {}, end: {}",
+                        chunk.conflictState,
+                        chunk.sequenceIndex,
+                        chunk.begin,
+                        chunk.end
+                    )
+                    writeChunk(chunk, conflictFile, sequences, begin, end)
+                }
+            }
+        }
+
+    private fun writeChunk(
+        chunk: MergeChunk?,
+        conflictFile: File,
+        sequences: List<RawText>,
+        begin: Int,
+        end: Int
+    ) {
+        if (chunk == null) return
+        val text = sequences[chunk.sequenceIndex].getString(begin, end, false)
+        when (chunk.conflictState) {
+            MergeChunk.ConflictState.NO_CONFLICT -> {
+                conflictFile.appendText(text)
+            }
+
+            MergeChunk.ConflictState.FIRST_CONFLICTING_RANGE -> {
+                conflictFile.appendText(chunk.getPresentableRevisionType())
+                conflictFile.appendText(text)
+            }
+
+            MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
+                conflictFile.appendText(chunk.getPresentableRevisionType())
+            }
+
+            MergeChunk.ConflictState.NEXT_CONFLICTING_RANGE -> {
+                conflictFile.appendText(text)
+                conflictFile.appendText(chunk.getPresentableRevisionType())
             }
         }
     }
@@ -131,9 +161,9 @@ object ConflictSearcher {
     }
 
     private fun MergeChunk.getPresentableRevisionType() = when (sequenceIndex) {
-        0 -> "Base"
-        1 -> "Ours"
-        2 -> "Theirs"
+        0 -> "===== Base\n"
+        1 -> "<<<<<<< Ours\n"
+        2 -> ">>>>>>> Theirs\n"
         else -> throw IllegalStateException("Unexpected sequence index")
     }
 
