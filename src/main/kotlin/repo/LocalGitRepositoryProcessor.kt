@@ -1,9 +1,10 @@
 package repo
 
+import data.ConflictOptionContext
 import java.io.File
 import java.nio.file.Path
 
-class LocalGitRepositoryProcessor(private val path: String) : GitRepositoryProcessor() {
+class LocalGitRepositoryProcessor(private val path: String, context: ConflictOptionContext) : GitRepositoryProcessor(context) {
 
 
     override fun fetch(): Path {

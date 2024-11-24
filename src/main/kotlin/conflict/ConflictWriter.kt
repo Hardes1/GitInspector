@@ -20,7 +20,7 @@ import kotlin.use
 
 private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 
-class ConflictWriter(conflictDirectory: Path, commitName: String) {
+class ConflictWriter(private val isBaseIncluded: Boolean, conflictDirectory: Path, commitName: String) {
     private val conflictDirName = createFolderForConflicts(conflictDirectory.pathString, commitName)
 
     suspend fun write(repository: Repository, tree: RevTree, mergeResult: Map<String, MergeResult<out Sequence>>) {
@@ -28,7 +28,7 @@ class ConflictWriter(conflictDirectory: Path, commitName: String) {
         writeConflicts(mergeResult, conflictDirName)
     }
 
-    private fun writeContents(
+    private suspend fun writeContents(
         repository: Repository,
         tree: RevTree,
         paths: Set<String>,
@@ -42,8 +42,10 @@ class ConflictWriter(conflictDirectory: Path, commitName: String) {
                 if (treeWalk.pathString !in paths) continue
                 val loader = repository.open(treeWalk.getObjectId(0))
                 val content = String(loader.bytes)
-                val file = createDataFile(treeWalk.pathString, conflictDir, RevisionType.RESULT)
-                file.writeText(content)
+                withContext(Dispatchers.IO) {
+                    val file = createDataFile(treeWalk.pathString, conflictDir, RevisionType.RESULT)
+                    file.writeText(content)
+                }
             }
         }
 
@@ -94,6 +96,10 @@ class ConflictWriter(conflictDirectory: Path, commitName: String) {
             }
 
             MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
+                if (isBaseIncluded) {
+                    conflictFile.appendText(chunk.getPresentableRevisionType())
+                    conflictFile.appendText(text)
+                }
                 conflictFile.appendText(chunk.getPresentableRevisionType())
             }
 
