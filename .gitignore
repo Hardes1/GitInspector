@@ -43,6 +43,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
-data/
+/data/
 /repositories/
 /logs/
