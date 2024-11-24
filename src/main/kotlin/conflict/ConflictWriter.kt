@@ -8,6 +8,7 @@ import org.eclipse.jgit.diff.Sequence
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.merge.MergeChunk
 import org.eclipse.jgit.merge.MergeResult
+import org.eclipse.jgit.revwalk.RevCommit
 import org.eclipse.jgit.revwalk.RevTree
 import org.eclipse.jgit.treewalk.TreeWalk
 import org.slf4j.LoggerFactory
@@ -21,20 +22,30 @@ import kotlin.use
 
 private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 
-class ConflictWriter(private val isBaseIncluded: Boolean, conflictDirectory: Path, commitName: String) {
-    private val conflictDirName = createFolderForConflicts(conflictDirectory.pathString, commitName)
+class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
+    private val repositoryDataDir: File
+    init {
+        val conflictDirPath = PathUtils.getCurrentConflictPath(path)
+        val folder = File(conflictDirPath.pathString)
+        if (folder.exists()) {
+            folder.deleteRecursively()
+        }
+        folder.mkdirs()
+        repositoryDataDir = folder
+    }
 
-    suspend fun writer(repository: Repository, tree: RevTree, mergeResult: Map<String, MergeResult<out Sequence>>) {
-        val resultRevisionInfoMap = getResultRevisionInfoMap(repository, tree, mergeResult.keys)
+    suspend fun addConflict(repository: Repository, commit: RevCommit, mergeResult: Map<String, MergeResult<out Sequence>>) {
+
+        val resultRevisionInfoMap = getResultRevisionInfoMap(repository, commit.tree, mergeResult.keys)
         val conflictRevisionInfoMap = getConflictRevisionInfoMap(mergeResult)
         val allRevisionInfoMap = resultRevisionInfoMap.mapValues { (key, value) ->
             val otherFileContent = conflictRevisionInfoMap[key] ?: return@mapValues listOf(value)
             listOf(value, otherFileContent)
         }.mapKeys { (key, _) -> Path(key) }
         withContext(Dispatchers.IO) {
-            for ((path, fileWithContentList) in allRevisionInfoMap) {
-                for (conflictInfo in fileWithContentList) {
-                    val file = createDataFile(path, conflictDirName, conflictInfo.revisionType)
+            for ((path, fileRevisionInfoList) in allRevisionInfoMap) {
+                for (conflictInfo in fileRevisionInfoList) {
+                    val file = createDataFile(path, commit.name, repositoryDataDir, conflictInfo.revisionType)
                     file.writeText(conflictInfo.content)
                 }
             }
@@ -126,24 +137,14 @@ class ConflictWriter(private val isBaseIncluded: Boolean, conflictDirectory: Pat
         return builder
     }
 
-    private fun createDataFile(path: Path, conflictDir: File, revisionType: RevisionType): File {
+    private fun createDataFile(path: Path, commitName: String, repositoryDir: File, revisionType: RevisionType): File {
         val directoryName = path.parent
         val filename = path.fileName
-        val conflictFile = File(conflictDir, "${directoryName?.pathString.orEmpty()}/${revisionType.prefix}-$filename")
+        val fullPath = Path(commitName, directoryName?.pathString.orEmpty(), "${revisionType.prefix}-$filename")
+        val conflictFile = File(repositoryDir, fullPath.pathString)
         conflictFile.parentFile.mkdirs()
         conflictFile.createNewFile()
         return conflictFile
-    }
-
-    private fun createFolderForConflicts(path: String, commitName: String): File {
-        val repoName = PathUtils.getFilename(path)
-        val conflictDirPath = Path(".", "data", repoName, "conflicts", commitName)
-        val folder = File(conflictDirPath.pathString)
-        if (folder.exists()) {
-            folder.deleteRecursively()
-        }
-        folder.mkdirs()
-        return folder
     }
 
     private fun MergeChunk.getPresentableRevisionType() = when (sequenceIndex) {

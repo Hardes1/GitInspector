@@ -22,9 +22,10 @@ private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val MAX_NUMBER_OF_TREADS = 32
 
-class ConflictSearcher(private val context : ConflictOptionContext) {
-    fun search(path: Path) {
-        val git = Git.open(File(path.pathString))
+class ConflictSearcher(private val repositoryPath: Path, context : ConflictOptionContext) {
+    private val conflictWriter = ConflictWriter(context.isBaseIncluded, repositoryPath)
+    fun execute() {
+        val git = Git.open(File(repositoryPath.pathString))
         val repository = git.repository
         runBlocking {
             val commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
@@ -34,7 +35,7 @@ class ConflictSearcher(private val context : ConflictOptionContext) {
             val iteration = AtomicInteger(0)
             commitList.chunked(commitList.size / min(commitList.size, MAX_NUMBER_OF_TREADS)).forEach { chunk ->
                 val job = launch(Dispatchers.Default) {
-                    processChunk(chunk, repository, path, iteration, commitList.size)
+                    processChunk(chunk, repository, iteration, commitList.size)
                 }
                 jobList.add(job)
             }
@@ -45,7 +46,6 @@ class ConflictSearcher(private val context : ConflictOptionContext) {
     private suspend fun processChunk(
         commitList: List<RevCommit>,
         repository: Repository,
-        path: Path,
         step: AtomicInteger,
         totalSize: Int
     ) {
@@ -57,9 +57,8 @@ class ConflictSearcher(private val context : ConflictOptionContext) {
                 MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
             if (!merger.merge(leftParent, rightParent)) {
                 LOG.debug("Merge conflict found")
-                val conflictWriter = ConflictWriter(context.isBaseIncluded, path, commit.name)
                 val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
-                conflictWriter.writer(repository, commit.tree, mergeResult)
+                conflictWriter.addConflict(repository, commit, mergeResult)
             }
         }
     }

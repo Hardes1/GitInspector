@@ -8,13 +8,13 @@ import java.nio.file.Path
 
 private val LOG = LoggerFactory.getLogger(GitRepositoryProcessor::class.java)
 
-abstract class GitRepositoryProcessor(context: ConflictOptionContext) {
-    private val searcher: ConflictSearcher = ConflictSearcher(context)
+abstract class GitRepositoryProcessor(private val context: ConflictOptionContext) {
     fun run() {
         LOG.info("Fetching repository")
         val path = fetch()
+        val searcher = ConflictSearcher(path, context)
         LOG.info("Searching conflicts")
-        searcher.search(path)
+        searcher.execute()
     }
 
     abstract fun fetch(): Path
