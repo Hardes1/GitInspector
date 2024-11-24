@@ -59,7 +59,7 @@ class ConflictSearcher(private val context : ConflictOptionContext) {
                 LOG.debug("Merge conflict found")
                 val conflictWriter = ConflictWriter(context.isBaseIncluded, path, commit.name)
                 val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
-                conflictWriter.write(repository, commit.tree, mergeResult)
+                conflictWriter.writer(repository, commit.tree, mergeResult)
             }
         }
     }

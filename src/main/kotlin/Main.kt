@@ -14,10 +14,16 @@ class Main : CliktCommand() {
         "-b",
         help = "Show base content in conflicts"
     ).flag(default = false)
+    val isGroupFiletype: Boolean by option(
+        "--group-filetype",
+        "-g",
+        help = "Group conflicts by filetype"
+    ).flag(default = false)
 
     override fun run() {
         val context = InputOptionContext(
             isBaseIncluded = isIncludeBase,
+            isGroupFiletype = isGroupFiletype,
             url = url,
             localPath = localPath,
         )

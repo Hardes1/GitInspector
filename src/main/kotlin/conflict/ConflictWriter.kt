@@ -1,5 +1,6 @@
 package conflict
 
+import data.RevisionInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.diff.RawText
@@ -23,97 +24,112 @@ private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 class ConflictWriter(private val isBaseIncluded: Boolean, conflictDirectory: Path, commitName: String) {
     private val conflictDirName = createFolderForConflicts(conflictDirectory.pathString, commitName)
 
-    suspend fun write(repository: Repository, tree: RevTree, mergeResult: Map<String, MergeResult<out Sequence>>) {
-        writeContents(repository, tree, mergeResult.keys, conflictDirName)
-        writeConflicts(mergeResult, conflictDirName)
+    suspend fun writer(repository: Repository, tree: RevTree, mergeResult: Map<String, MergeResult<out Sequence>>) {
+        val resultRevisionInfoMap = getResultRevisionInfoMap(repository, tree, mergeResult.keys)
+        val conflictRevisionInfoMap = getConflictRevisionInfoMap(mergeResult)
+        val allRevisionInfoMap = resultRevisionInfoMap.mapValues { (key, value) ->
+            val otherFileContent = conflictRevisionInfoMap[key] ?: return@mapValues listOf(value)
+            listOf(value, otherFileContent)
+        }.mapKeys { (key, _) -> Path(key) }
+        withContext(Dispatchers.IO) {
+            for ((path, fileWithContentList) in allRevisionInfoMap) {
+                for (conflictInfo in fileWithContentList) {
+                    val file = createDataFile(path, conflictDirName, conflictInfo.revisionType)
+                    file.writeText(conflictInfo.content)
+                }
+            }
+        }
     }
 
-    private suspend fun writeContents(
+    private fun getResultRevisionInfoMap(
         repository: Repository,
         tree: RevTree,
-        paths: Set<String>,
-        conflictDir: File
-    ): Unit =
+        paths: Set<String>
+    ): Map<String, RevisionInfo> {
+        val result = mutableMapOf<String, RevisionInfo>()
         TreeWalk(repository).use { treeWalk ->
             treeWalk.addTree(tree)
             treeWalk.isRecursive = true
 
             while (treeWalk.next()) {
-                if (treeWalk.pathString !in paths) continue
+                val pathString = treeWalk.pathString
+                if (pathString !in paths) continue
                 val loader = repository.open(treeWalk.getObjectId(0))
                 val content = String(loader.bytes)
-                withContext(Dispatchers.IO) {
-                    val file = createDataFile(treeWalk.pathString, conflictDir, RevisionType.RESULT)
-                    file.writeText(content)
-                }
+                result.put(pathString, RevisionInfo(content, RevisionType.RESULT))
             }
         }
+        return result
+    }
 
 
-    private suspend fun writeConflicts(mergeResults: Map<String, MergeResult<out Sequence>>, conflictDir: File) =
-        withContext(Dispatchers.IO) {
-            for ((path, mergeResult) in mergeResults) {
-                LOG.debug("Path: $path")
-                val conflictFile = createDataFile(path, conflictDir, RevisionType.CONFLICT)
-
-                val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
-
-                for (chunk in mergeResult) {
-                    if (chunk == null) {
-                        LOG.warn("Nullable chunk for path $path")
-                        continue
-                    }
-                    val begin = chunk.begin
-                    val end = max(chunk.end, begin)
-                    LOG.debug(
-                        "chunk state: {}, sequence: {}, begin: {}, end: {}",
-                        chunk.conflictState,
-                        chunk.sequenceIndex,
-                        chunk.begin,
-                        chunk.end
-                    )
-                    writeChunk(chunk, conflictFile, sequences, begin, end)
+    private fun getConflictRevisionInfoMap(
+        mergeResults: Map<String, MergeResult<out Sequence>>
+    ): Map<String, RevisionInfo> {
+        val result = mutableMapOf<String, RevisionInfo>()
+        for ((pathString, mergeResult) in mergeResults) {
+            val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
+            val fileContent = StringBuilder()
+            for (chunk in mergeResult) {
+                if (chunk == null) {
+                    LOG.warn("Nullable chunk for path $pathString")
+                    continue
                 }
-            }
-        }
+                val begin = chunk.begin
+                val end = max(chunk.end, begin)
+                LOG.debug(
+                    "chunk state: {}, sequence: {}, begin: {}, end: {}",
+                    chunk.conflictState,
+                    chunk.sequenceIndex,
+                    chunk.begin,
+                    chunk.end
+                )
 
-    private fun writeChunk(
+                fileContent.append(getConflictFileContent(chunk, sequences, begin, end))
+            }
+            result.put(pathString, RevisionInfo(fileContent.toString(), RevisionType.CONFLICT))
+        }
+        return result
+    }
+
+    private fun getConflictFileContent(
         chunk: MergeChunk,
-        conflictFile: File,
         sequences: List<RawText>,
         begin: Int,
         end: Int
-    ) {
+    ): StringBuilder {
+        val builder = StringBuilder()
         val text = sequences[chunk.sequenceIndex].getString(begin, end, false)
         when (chunk.conflictState) {
             MergeChunk.ConflictState.NO_CONFLICT -> {
-                conflictFile.appendText(text)
+                builder.append(text)
             }
 
             MergeChunk.ConflictState.FIRST_CONFLICTING_RANGE -> {
-                conflictFile.appendText(chunk.getPresentableRevisionType())
-                conflictFile.appendText(text)
+                builder.append(chunk.getPresentableRevisionType())
+                builder.append(text)
             }
 
             MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
                 if (isBaseIncluded) {
-                    conflictFile.appendText(chunk.getPresentableRevisionType())
-                    conflictFile.appendText(text)
+                    builder.append(chunk.getPresentableRevisionType())
+                    builder.append(text)
                 }
-                conflictFile.appendText(chunk.getPresentableRevisionType())
+                builder.append(chunk.getPresentableRevisionType())
             }
 
             MergeChunk.ConflictState.NEXT_CONFLICTING_RANGE -> {
-                conflictFile.appendText(text)
-                conflictFile.appendText(chunk.getPresentableRevisionType())
+                builder.append(text)
+                builder.append(chunk.getPresentableRevisionType())
             }
         }
+        return builder
     }
 
-    private fun createDataFile(path: String, conflictDir: File, revisionType: RevisionType): File {
-        val directoryName = PathUtils.getDirectoryName(path)
-        val filename = PathUtils.getFilename(path)
-        val conflictFile = File(conflictDir, "${directoryName.orEmpty()}${revisionType.prefix}-$filename")
+    private fun createDataFile(path: Path, conflictDir: File, revisionType: RevisionType): File {
+        val directoryName = path.parent
+        val filename = path.fileName
+        val conflictFile = File(conflictDir, "${directoryName?.pathString.orEmpty()}/${revisionType.prefix}-$filename")
         conflictFile.parentFile.mkdirs()
         conflictFile.createNewFile()
         return conflictFile
