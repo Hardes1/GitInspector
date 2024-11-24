@@ -31,6 +31,7 @@ import kotlin.math.min
 
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
+private const val MAX_NUMBER_OF_TREADS = 32
 
 object ConflictSearcher {
     fun search(path: Path) {
@@ -42,7 +43,7 @@ object ConflictSearcher {
 
             val jobList: MutableList<Job> = mutableListOf()
             val iteration = AtomicInteger(0)
-            commitList.chunked(commitList.size / min(commitList.size, 32)).forEach { chunk ->
+            commitList.chunked(commitList.size / min(commitList.size, MAX_NUMBER_OF_TREADS)).forEach { chunk ->
                 val job = launch(Dispatchers.Default) {
                     processChunk(chunk, repository, path, iteration, commitList.size)
                 }
@@ -67,114 +68,14 @@ object ConflictSearcher {
                 MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
             if (!merger.merge(leftParent, rightParent)) {
                 LOG.debug("Merge conflict found")
-                val conflictDirName = createFolderForConflicts(path.name, commit.name)
+                val conflictWriter = ConflictWriter(path, commit.name)
                 val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
-                writeContents(repository, commit.tree, mergeResult.keys, conflictDirName)
-                writeConflicts(conflictDirName, mergeResult)
+                conflictWriter.write(repository, commit.tree, mergeResult)
             }
         }
     }
-
-    private fun writeContents(
-        repository: Repository,
-        tree: RevTree,
-        paths: Set<String>,
-        conflictDir: File
-    ): Unit =
-        TreeWalk(repository).use { treeWalk ->
-            treeWalk.addTree(tree)
-            treeWalk.isRecursive = true
-
-            while (treeWalk.next()) {
-                if (treeWalk.pathString !in paths) continue
-                val loader = repository.open(treeWalk.getObjectId(0))
-                val content = String(loader.bytes)
-                val file = createDataFile(treeWalk.pathString, conflictDir, RevisionType.RESULT)
-                file.writeText(content)
-            }
-        }
 
     private fun getParentObjects(commit: RevCommit): Pair<ObjectId, ObjectId> {
         return commit.getParent(0).toObjectId() to commit.getParent(1).toObjectId()
-    }
-
-    private suspend fun writeConflicts(conflictDir: File, mergeResults: Map<String, MergeResult<out Sequence>>) =
-        withContext(Dispatchers.IO) {
-            for ((path, mergeResult) in mergeResults) {
-                LOG.debug("Path: $path")
-                val conflictFile = createDataFile(path, conflictDir, RevisionType.CONFLICT)
-
-                val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
-
-                for (chunk in mergeResult) {
-                    val begin = chunk.begin
-                    val end = max(chunk.end, begin)
-                    LOG.debug(
-                        "chunk state: {}, sequence: {}, begin: {}, end: {}",
-                        chunk.conflictState,
-                        chunk.sequenceIndex,
-                        chunk.begin,
-                        chunk.end
-                    )
-                    writeChunk(chunk, conflictFile, sequences, begin, end)
-                }
-            }
-        }
-
-    private fun writeChunk(
-        chunk: MergeChunk?,
-        conflictFile: File,
-        sequences: List<RawText>,
-        begin: Int,
-        end: Int
-    ) {
-        if (chunk == null) return
-        val text = sequences[chunk.sequenceIndex].getString(begin, end, false)
-        when (chunk.conflictState) {
-            MergeChunk.ConflictState.NO_CONFLICT -> {
-                conflictFile.appendText(text)
-            }
-
-            MergeChunk.ConflictState.FIRST_CONFLICTING_RANGE -> {
-                conflictFile.appendText(chunk.getPresentableRevisionType())
-                conflictFile.appendText(text)
-            }
-
-            MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
-                conflictFile.appendText(chunk.getPresentableRevisionType())
-            }
-
-            MergeChunk.ConflictState.NEXT_CONFLICTING_RANGE -> {
-                conflictFile.appendText(text)
-                conflictFile.appendText(chunk.getPresentableRevisionType())
-            }
-        }
-    }
-
-    private fun createDataFile(path: String, conflictDir: File, revisionType: RevisionType): File {
-        val directoryName = PathUtils.getDirectoryName(path)
-        val filename = PathUtils.getFilename(path)
-        val conflictFile = File(conflictDir, "${directoryName.orEmpty()}${revisionType.prefix}-$filename")
-        conflictFile.parentFile.mkdirs()
-        conflictFile.createNewFile()
-        return conflictFile
-    }
-
-    private fun MergeChunk.getPresentableRevisionType() = when (sequenceIndex) {
-        0 -> "===== Base\n"
-        1 -> "<<<<<<< Ours\n"
-        2 -> ">>>>>>> Theirs\n"
-        else -> throw IllegalStateException("Unexpected sequence index")
-    }
-
-    private fun createFolderForConflicts(path: String, commitName: String): File {
-        val repoName = PathUtils.getFilename(path)
-        val conflictDirPath = Path(".", "data", repoName, "conflicts", commitName)
-        val folder = File(conflictDirPath.pathString)
-        if (folder.exists()) {
-            folder.deleteRecursively()
-        }
-        folder.mkdirs()
-        return folder
     }
 }
