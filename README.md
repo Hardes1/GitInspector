@@ -11,6 +11,8 @@ This tool was designed to search all conflicts produced by merge command in git.
 
 `-u, --url` - specify url to the git repository. Example: `java MainKt --url="https://github.com/gradle/gradle.git"`
 
-`--include-base, -b` - whether contents of the base commit should be included in the file with conflicts 
+`--include-base, -b` - whether contents of the base commit should be included in the file with conflicts
+
+`--group-filetype, -g` - whether should group conflicts by filetype or not
 
 It is important to note that only one argument should be provided. 

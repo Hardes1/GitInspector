@@ -23,7 +23,7 @@ private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val MAX_NUMBER_OF_TREADS = 32
 
 class ConflictSearcher(private val repositoryPath: Path, context : ConflictOptionContext) {
-    private val conflictWriter = ConflictWriter(context.isBaseIncluded, repositoryPath)
+    private val conflictWriter = ConflictWriter.create(context, repositoryPath)
     fun execute() {
         val git = Git.open(File(repositoryPath.pathString))
         val repository = git.repository

@@ -1,6 +1,8 @@
 package conflict
 
+import data.ConflictOptionContext
 import data.RevisionInfo
+import data.WriterOptionContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.diff.RawText
@@ -22,10 +24,11 @@ import kotlin.use
 
 private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 
-class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
-    private val repositoryDataDir: File
+abstract class ConflictWriter(private val context: WriterOptionContext, repositoryPath: Path) {
+    protected val repositoryDataDir: File
+
     init {
-        val conflictDirPath = PathUtils.getCurrentConflictPath(path)
+        val conflictDirPath = PathUtils.getCurrentConflictPath(repositoryPath)
         val folder = File(conflictDirPath.pathString)
         if (folder.exists()) {
             folder.deleteRecursively()
@@ -34,23 +37,29 @@ class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
         repositoryDataDir = folder
     }
 
-    suspend fun addConflict(repository: Repository, commit: RevCommit, mergeResult: Map<String, MergeResult<out Sequence>>) {
-
+    suspend fun addConflict(
+        repository: Repository,
+        commit: RevCommit,
+        mergeResult: Map<String, MergeResult<out Sequence>>
+    ) {
         val resultRevisionInfoMap = getResultRevisionInfoMap(repository, commit.tree, mergeResult.keys)
         val conflictRevisionInfoMap = getConflictRevisionInfoMap(mergeResult)
         val allRevisionInfoMap = resultRevisionInfoMap.mapValues { (key, value) ->
             val otherFileContent = conflictRevisionInfoMap[key] ?: return@mapValues listOf(value)
             listOf(value, otherFileContent)
         }.mapKeys { (key, _) -> Path(key) }
-        withContext(Dispatchers.IO) {
-            for ((path, fileRevisionInfoList) in allRevisionInfoMap) {
-                for (conflictInfo in fileRevisionInfoList) {
-                    val file = createDataFile(path, commit.name, repositoryDataDir, conflictInfo.revisionType)
-                    file.writeText(conflictInfo.content)
-                }
+
+        for ((path, revisionInfoList) in allRevisionInfoMap) {
+            withContext(Dispatchers.IO) {
+                writeConflict(path, commit, revisionInfoList)
             }
         }
     }
+
+    /**
+     * This code is invoked in [Dispatchers.IO] threadpool
+     */
+    protected abstract suspend fun writeConflict(path: Path, commit: RevCommit, revisionInfoList: List<RevisionInfo>)
 
     private fun getResultRevisionInfoMap(
         repository: Repository,
@@ -122,7 +131,7 @@ class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
             }
 
             MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
-                if (isBaseIncluded) {
+                if (context.isBaseIncluded) {
                     builder.append(chunk.getPresentableRevisionType())
                     builder.append(text)
                 }
@@ -137,11 +146,8 @@ class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
         return builder
     }
 
-    private fun createDataFile(path: Path, commitName: String, repositoryDir: File, revisionType: RevisionType): File {
-        val directoryName = path.parent
-        val filename = path.fileName
-        val fullPath = Path(commitName, directoryName?.pathString.orEmpty(), "${revisionType.prefix}-$filename")
-        val conflictFile = File(repositoryDir, fullPath.pathString)
+    protected fun createDataFile(fullPath: Path): File {
+        val conflictFile = File(repositoryDataDir, fullPath.pathString)
         conflictFile.parentFile.mkdirs()
         conflictFile.createNewFile()
         return conflictFile
@@ -152,5 +158,12 @@ class ConflictWriter(private val isBaseIncluded: Boolean, path: Path) {
         1 -> "<<<<<<< Ours\n"
         2 -> ">>>>>>> Theirs\n"
         else -> throw IllegalStateException("Unexpected sequence index")
+    }
+
+    companion object {
+        fun create(optionContext: ConflictOptionContext, repositoryPath: Path): ConflictWriter {
+            val writerContext = WriterOptionContext(isBaseIncluded = optionContext.isBaseIncluded)
+            return if (optionContext.isGroupFiletype) FiletypeConflictWriter(writerContext, repositoryPath) else StructuredConflictWriter(writerContext, repositoryPath)
+        }
     }
 }
