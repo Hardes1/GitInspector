@@ -10,6 +10,7 @@ import java.io.File
 import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.extension
+import kotlin.io.path.pathString
 
 private val LOG = LoggerFactory.getLogger(FiletypeConflictWriter::class.java)
 class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path) : ConflictWriter(context, repositoryPath) {
@@ -40,7 +41,7 @@ class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path)
 
     private fun createDataFile(path: Path, extensionName : String, number: Int, revisionType: RevisionType) : File {
         val filename = path.fileName
-        val fullPath = Path(extensionName, "file${number}", "${revisionType.prefix}-$filename")
+        val fullPath = Path(extensionName, "file${number}", revisionType.getFilenameWithRevisionType(filename.pathString))
         return createDataFile(fullPath)
     }
 }

@@ -5,5 +5,13 @@ enum class RevisionType(val prefix: String) {
     OURS("ours"),
     THEIRS("theirs"),
     BASE("base"),
-    CONFLICT("conflict")
+    CONFLICT("conflict");
+
+    fun getFilenameWithRevisionType(filename: String) = when(this) {
+        RESULT -> "result"
+        OURS -> "ours"
+        THEIRS -> "theirs"
+        BASE -> "base"
+        CONFLICT -> "conflict"
+    } + "-$filename"
 }
