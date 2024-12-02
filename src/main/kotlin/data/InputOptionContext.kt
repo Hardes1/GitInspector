@@ -6,5 +6,6 @@ data class InputOptionContext(
     val shouldPrune: Boolean,
     val url: String?,
     val localPath: String?,
+    val multiplePath: String?,
     val filter: String?,
 )

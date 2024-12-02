@@ -11,7 +11,7 @@ import kotlin.io.path.Path
 
 private val LOG = LoggerFactory.getLogger(RemoteGitRepositoryProcessor::class.java)
 
-class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionContext) : GitRepositoryProcessor(context) {
+class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionContext) : SingleGitRepositoryProcessor(context) {
     override fun fetch(): Path {
         if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
         val repoName = GitUtils.getRepositoryName(url)

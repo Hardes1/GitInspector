@@ -27,6 +27,8 @@ class Main : CliktCommand() {
 
     val filter: String? by option("--filter", "-f", help = "Filter by filetype")
 
+    val multiplePath : String? by option("--multiple-repo-path", help = "Local path to the list of repositories with files")
+
     override fun run() {
         val context = InputOptionContext(
             isBaseIncluded = isIncludeBase,
@@ -34,6 +36,7 @@ class Main : CliktCommand() {
             shouldPrune = shouldPrune,
             url = url,
             localPath = localPath,
+            multiplePath = multiplePath,
             filter = filter
         )
         val processor = GitRepositoryProcessor.create(context)

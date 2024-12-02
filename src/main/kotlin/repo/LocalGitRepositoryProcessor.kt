@@ -4,7 +4,7 @@ import data.ConflictOptionContext
 import java.io.File
 import java.nio.file.Path
 
-class LocalGitRepositoryProcessor(private val path: String, context: ConflictOptionContext) : GitRepositoryProcessor(context) {
+class LocalGitRepositoryProcessor(private val path: String, context: ConflictOptionContext) :  SingleGitRepositoryProcessor(context) {
     override fun prune(): Boolean {
         error("It is not allowed to prune local repository")
     }
