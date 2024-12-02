@@ -15,7 +15,12 @@ abstract class GitRepositoryProcessor(private val context: ConflictOptionContext
         val searcher = ConflictSearcher(path, context)
         LOG.info("Searching conflicts")
         searcher.execute()
+        if (context.shouldPrune) {
+            prune()
+        }
     }
+
+    abstract fun prune(): Boolean
 
     abstract fun fetch(): Path
 

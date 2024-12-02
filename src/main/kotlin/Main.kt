@@ -20,10 +20,16 @@ class Main : CliktCommand() {
         help = "Group conflicts by filetype"
     ).flag(default = false)
 
+    val shouldPrune: Boolean by option(
+        "--no-cache",
+        help = "Remove repository after processing it"
+    ).flag(default = false)
+
     override fun run() {
         val context = InputOptionContext(
             isBaseIncluded = isIncludeBase,
             isGroupFiletype = isGroupFiletype,
+            shouldPrune = shouldPrune,
             url = url,
             localPath = localPath,
         )

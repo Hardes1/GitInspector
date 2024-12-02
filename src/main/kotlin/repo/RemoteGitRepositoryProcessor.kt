@@ -17,6 +17,7 @@ class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionConte
         val repoName = GitUtils.getRepositoryName(url)
         val path = Path(".", "repositories", repoName)
         val file = path.toFile()
+        LOG.info("Repository name: $repoName")
         if (file.exists() == true && file.isDirectory && file.listFiles().isNotEmpty()) {
             LOG.warn("Repository already exists, clone wasn't performed.")
             try {
@@ -31,5 +32,18 @@ class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionConte
         }
         Git.cloneRepository().setURI(url).setDirectory(file).call()
         return path
+    }
+
+    override fun prune(): Boolean {
+        if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
+        val repoName = GitUtils.getRepositoryName(url)
+        val path = Path(".", "repositories", repoName)
+        val file = path.toFile()
+        if (file.exists()) {
+            return file.deleteRecursively()
+        } else {
+            LOG.warn("Repository doesn't exist and therefore can't be deleted.")
+            return false
+        }
     }
 }
