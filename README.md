@@ -15,4 +15,6 @@ This tool was designed to search all conflicts produced by merge command in git.
 
 `--group-filetype, -g` - whether should group conflicts by filetype or not
 
+`--no-cache` - remove remote repository content after processing merged commits.
+
 It is important to note that only one argument should be provided. 
