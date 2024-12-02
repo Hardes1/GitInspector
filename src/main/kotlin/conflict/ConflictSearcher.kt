@@ -22,7 +22,7 @@ private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val MAX_NUMBER_OF_TREADS = 32
 
-class ConflictSearcher(private val repositoryPath: Path, context : ConflictOptionContext) {
+class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
     fun execute() {
         val git = Git.open(File(repositoryPath.pathString))
@@ -57,7 +57,7 @@ class ConflictSearcher(private val repositoryPath: Path, context : ConflictOptio
                 MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
             if (!merger.merge(leftParent, rightParent)) {
                 LOG.debug("Merge conflict found")
-                val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths }
+                val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
                 conflictWriter.addConflict(repository, commit, mergeResult)
             }
         }

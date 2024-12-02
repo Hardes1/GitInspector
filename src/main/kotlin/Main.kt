@@ -25,6 +25,8 @@ class Main : CliktCommand() {
         help = "Remove repository after processing it"
     ).flag(default = false)
 
+    val filter: String? by option("--filter", "-f", help = "Filter by filetype")
+
     override fun run() {
         val context = InputOptionContext(
             isBaseIncluded = isIncludeBase,
@@ -32,6 +34,7 @@ class Main : CliktCommand() {
             shouldPrune = shouldPrune,
             url = url,
             localPath = localPath,
+            filter = filter
         )
         val processor = GitRepositoryProcessor.create(context)
         processor.run()

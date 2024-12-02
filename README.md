@@ -17,4 +17,6 @@ This tool was designed to search all conflicts produced by merge command in git.
 
 `--no-cache` - remove remote repository content after processing merged commits.
 
+`--filter, -f` - filter filenames by given regular expression satisfying PCRE. Example `java MainKt --filter="*.properties"`
+
 It is important to note that only one argument should be provided. 
