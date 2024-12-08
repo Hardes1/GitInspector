@@ -125,27 +125,28 @@ abstract class ConflictWriter(private val context: WriterOptionContext, private 
     ): StringBuilder {
         val builder = StringBuilder()
         val text = sequences[chunk.sequenceIndex].getString(begin, end, false)
+        val shouldAddNewLine = builder.lastOrNull()?.let { it != '\n' } ?: false
         when (chunk.conflictState) {
             MergeChunk.ConflictState.NO_CONFLICT -> {
                 builder.append(text)
             }
 
             MergeChunk.ConflictState.FIRST_CONFLICTING_RANGE -> {
-                builder.append(chunk.getPresentableRevisionType())
+                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
                 builder.append(text)
             }
 
             MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
                 if (context.isBaseIncluded) {
-                    builder.append(chunk.getPresentableRevisionType())
+                    builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
                     builder.append(text)
                 }
-                builder.append(chunk.getPresentableRevisionType())
+                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
             }
 
             MergeChunk.ConflictState.NEXT_CONFLICTING_RANGE -> {
                 builder.append(text)
-                builder.append(chunk.getPresentableRevisionType())
+                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
             }
         }
         return builder
@@ -159,11 +160,16 @@ abstract class ConflictWriter(private val context: WriterOptionContext, private 
         return conflictFile
     }
 
-    private fun MergeChunk.getPresentableRevisionType() = when (sequenceIndex) {
-        0 -> "===== Base\n"
-        1 -> "<<<<<<< Ours\n"
-        2 -> ">>>>>>> Theirs\n"
-        else -> throw IllegalStateException("Unexpected sequence index")
+    private fun MergeChunk.getPresentableRevisionType(shouldAddNewLine : Boolean): String = buildString {
+        append(if (shouldAddNewLine) "\n" else "")
+        append(
+            when (this@getPresentableRevisionType.sequenceIndex) {
+                0 -> "===== Base\n"
+                1 -> "<<<<<<< Ours\n"
+                2 -> ">>>>>>> Theirs\n"
+                else -> throw IllegalStateException("Unexpected sequence index")
+            }
+        )
     }
 
     companion object {
