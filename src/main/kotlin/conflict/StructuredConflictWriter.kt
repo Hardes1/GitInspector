@@ -10,7 +10,7 @@ import kotlin.io.path.pathString
 
 class StructuredConflictWriter(context: WriterOptionContext, repositoryPath: Path) :
     ConflictWriter(context, repositoryPath) {
-    override suspend fun writeConflict(path: Path, commit: RevCommit, revisionInfoList: List<RevisionInfo>) {
+    override fun writeConflict(path: Path, commit: RevCommit, revisionInfoList: List<RevisionInfo>) {
         for (revisionInfo in revisionInfoList) {
             val file = createDataFile(path, commit.name, revisionInfo.revisionType)
             file.writeText(revisionInfo.content)

@@ -16,7 +16,7 @@ private val LOG = LoggerFactory.getLogger(FiletypeConflictWriter::class.java)
 class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path) : ConflictWriter(context, repositoryPath) {
     private val filesMap: ConcurrentMap<String, Int> = ConcurrentHashMap()
 
-    override suspend fun writeConflict(
+    override fun writeConflict(
         path: Path,
         commit: RevCommit,
         revisionInfoList: List<RevisionInfo>

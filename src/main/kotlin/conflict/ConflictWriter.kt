@@ -24,17 +24,13 @@ import kotlin.use
 
 private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 
-abstract class ConflictWriter(private val context: WriterOptionContext, repositoryPath: Path) {
-    protected val repositoryDataDir: File
-
+abstract class ConflictWriter(private val context: WriterOptionContext, private val repositoryPath: Path) {
     init {
         val conflictDirPath = PathUtils.getCurrentConflictPath(repositoryPath)
         val folder = File(conflictDirPath.pathString)
         if (folder.exists()) {
             folder.deleteRecursively()
         }
-        folder.mkdirs()
-        repositoryDataDir = folder
     }
 
     suspend fun addConflict(
@@ -59,7 +55,7 @@ abstract class ConflictWriter(private val context: WriterOptionContext, reposito
     /**
      * This code is invoked in [Dispatchers.IO] threadpool
      */
-    protected abstract suspend fun writeConflict(path: Path, commit: RevCommit, revisionInfoList: List<RevisionInfo>)
+    protected abstract fun writeConflict(path: Path, commit: RevCommit, revisionInfoList: List<RevisionInfo>)
 
     private fun getResultRevisionInfoMap(
         repository: Repository,
@@ -80,6 +76,15 @@ abstract class ConflictWriter(private val context: WriterOptionContext, reposito
             }
         }
         return result
+    }
+
+    private fun getRepositoryDataDir(): File {
+        val conflictDirPath = PathUtils.getCurrentConflictPath(repositoryPath)
+        val folder = File(conflictDirPath.pathString)
+        if (!folder.exists()) {
+            folder.mkdirs()
+        }
+        return folder
     }
 
 
@@ -147,6 +152,7 @@ abstract class ConflictWriter(private val context: WriterOptionContext, reposito
     }
 
     protected fun createDataFile(fullPath: Path): File {
+        val repositoryDataDir = getRepositoryDataDir()
         val conflictFile = File(repositoryDataDir, fullPath.pathString)
         conflictFile.parentFile.mkdirs()
         conflictFile.createNewFile()

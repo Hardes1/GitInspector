@@ -28,14 +28,15 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
         val git = Git.open(File(repositoryPath.pathString))
         val repository = git.repository
         runBlocking {
-            val commitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
-            LOG.info("Found ${commitList.size} merge commits")
+            val mergeCommitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
+            LOG.info("Found ${mergeCommitList.size} merge commits")
 
             val jobList: MutableList<Job> = mutableListOf()
             val iteration = AtomicInteger(0)
-            commitList.chunked(commitList.size / min(commitList.size, MAX_NUMBER_OF_TREADS)).forEach { chunk ->
+            if (mergeCommitList.isEmpty()) return@runBlocking
+            mergeCommitList.chunked(mergeCommitList.size / min(mergeCommitList.size, MAX_NUMBER_OF_TREADS)).forEach { chunk ->
                 val job = launch(Dispatchers.Default) {
-                    processChunk(chunk, repository, iteration, commitList.size)
+                    processChunk(chunk, repository, iteration, mergeCommitList.size)
                 }
                 jobList.add(job)
             }
@@ -55,10 +56,15 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
             val (leftParent, rightParent) = getParentObjects(commit)
             val merger =
                 MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
-            if (!merger.merge(leftParent, rightParent)) {
-                LOG.debug("Merge conflict found")
-                val mergeResult = merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
-                conflictWriter.addConflict(repository, commit, mergeResult)
+            try {
+                if (!merger.merge(leftParent, rightParent)) {
+                    LOG.debug("Merge conflict found")
+                    val mergeResult =
+                        merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
+                    conflictWriter.addConflict(repository, commit, mergeResult)
+                }
+            } catch (e: Exception) {
+                LOG.error("Error while processing commit ${commit.name}", e)
             }
         }
     }

@@ -13,9 +13,12 @@ abstract class SingleGitRepositoryProcessor(private val context : ConflictOption
         val path = fetch()
         val searcher = ConflictSearcher(path, context)
         LOG.info("Searching conflicts")
-        searcher.execute()
-        if (context.shouldPrune) {
-            prune()
+        try {
+            searcher.execute()
+        } finally {
+            if (context.shouldPrune) {
+                prune()
+            }
         }
     }
 
