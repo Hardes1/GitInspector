@@ -29,6 +29,7 @@ abstract class ConflictWriter(private val context: WriterOptionContext, private 
         val conflictDirPath = PathUtils.getCurrentConflictPath(repositoryPath)
         val folder = File(conflictDirPath.pathString)
         if (folder.exists()) {
+            LOG.warn("Directory {} already exists, pruning it..", conflictDirPath.pathString)
             folder.deleteRecursively()
         }
     }
@@ -109,8 +110,8 @@ abstract class ConflictWriter(private val context: WriterOptionContext, private 
                     chunk.begin,
                     chunk.end
                 )
-
-                fileContent.append(getConflictFileContent(chunk, sequences, begin, end))
+                val shouldAddNewLineInitially = fileContent.lastOrNull()?.let { it != '\n' } ?: false
+                fileContent.append(getConflictFileContent(chunk, sequences, begin, end, shouldAddNewLineInitially))
             }
             result.put(pathString, RevisionInfo(fileContent.toString(), RevisionType.CONFLICT))
         }
@@ -121,32 +122,35 @@ abstract class ConflictWriter(private val context: WriterOptionContext, private 
         chunk: MergeChunk,
         sequences: List<RawText>,
         begin: Int,
-        end: Int
+        end: Int,
+        shouldAddNewLineInitially: Boolean
     ): StringBuilder {
         val builder = StringBuilder()
         val text = sequences[chunk.sequenceIndex].getString(begin, end, false)
-        val shouldAddNewLine = builder.lastOrNull()?.let { it != '\n' } ?: false
+
         when (chunk.conflictState) {
             MergeChunk.ConflictState.NO_CONFLICT -> {
                 builder.append(text)
             }
 
             MergeChunk.ConflictState.FIRST_CONFLICTING_RANGE -> {
-                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
+                builder.append(chunk.getPresentableRevisionType(shouldAddNewLineInitially))
                 builder.append(text)
             }
 
             MergeChunk.ConflictState.BASE_CONFLICTING_RANGE -> {
                 if (context.isBaseIncluded) {
-                    builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
+                    builder.append(chunk.getPresentableRevisionType(shouldAddNewLineInitially))
                     builder.append(text)
+                    builder.append(chunk.getPresentableRevisionType(builder.lastOrNull() != '\n'))
+                } else {
+                    builder.append(chunk.getPresentableRevisionType(shouldAddNewLineInitially))
                 }
-                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
             }
 
             MergeChunk.ConflictState.NEXT_CONFLICTING_RANGE -> {
                 builder.append(text)
-                builder.append(chunk.getPresentableRevisionType(shouldAddNewLine))
+                builder.append(chunk.getPresentableRevisionType(builder.lastOrNull() != '\n'))
             }
         }
         return builder
