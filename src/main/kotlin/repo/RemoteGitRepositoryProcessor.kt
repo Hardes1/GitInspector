@@ -14,10 +14,10 @@ private val LOG = LoggerFactory.getLogger(RemoteGitRepositoryProcessor::class.ja
 class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionContext) : SingleGitRepositoryProcessor(context) {
     override fun fetch(): Path {
         if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
-        val repoName = GitUtils.getRepositoryName(url)
-        val path = Path(".", "repositories", repoName)
+        val repositoryData = GitUtils.getRepositoryData(url)
+        val path = Path(".", "repositories", repositoryData.author, repositoryData.name)
         val file = path.toFile()
-        LOG.info("Repository name: $repoName")
+        LOG.info("Repository name: $repositoryData")
         if (file.exists() == true && file.isDirectory && file.listFiles().isNotEmpty()) {
             LOG.warn("Repository already exists, clone wasn't performed.")
             try {
@@ -36,8 +36,8 @@ class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionConte
 
     override fun prune(): Boolean {
         if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
-        val repoName = GitUtils.getRepositoryName(url)
-        val path = Path(".", "repositories", repoName)
+        val repositoryData = GitUtils.getRepositoryData(url)
+        val path = Path(".", "repositories", repositoryData.author, repositoryData.name)
         val file = path.toFile()
         if (file.exists()) {
             return file.deleteRecursively()
