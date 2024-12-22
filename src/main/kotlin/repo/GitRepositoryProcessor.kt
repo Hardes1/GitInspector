@@ -1,11 +1,12 @@
 package repo
 
 import data.ConflictOptionContext
+import data.ConflictProcessResult
 import data.InputOptionContext
 
 
 interface GitRepositoryProcessor {
-    fun run()
+    fun processConflicts(): ConflictProcessResult
 
     companion object {
         fun create(inputContext: InputOptionContext): GitRepositoryProcessor {

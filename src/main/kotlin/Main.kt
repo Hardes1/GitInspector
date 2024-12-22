@@ -3,10 +3,13 @@ import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import data.InputOptionContext
+import org.slf4j.LoggerFactory
 import repo.GitRepositoryProcessor
 
+private val LOG = LoggerFactory.getLogger(Main::class.java)
 
 class Main : CliktCommand() {
+
     val localPath: String? by option("--path", "-p", help = "Local path to git repository")
     val url: String? by option("--url", "-u", help = "URL to git repository in github")
     val isIncludeBase: Boolean by option(
@@ -40,7 +43,8 @@ class Main : CliktCommand() {
             filter = filter
         )
         val processor = GitRepositoryProcessor.create(context)
-        processor.run()
+        val result = processor.processConflicts()
+        LOG.info("Total number of files with conflicts {}:", result.numberOfConflicts)
     }
 
 }

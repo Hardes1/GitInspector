@@ -1,6 +1,7 @@
 package conflict
 
 import data.ConflictOptionContext
+import data.ConflictProcessResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -24,7 +25,9 @@ private const val MAX_NUMBER_OF_TREADS = 32
 
 class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
-    fun execute() {
+    private val totalNumberOfFilesWithConflict = AtomicInteger(0)
+
+    fun execute(): ConflictProcessResult {
         val git = Git.open(File(repositoryPath.pathString))
         val repository = git.repository
         runBlocking {
@@ -42,6 +45,8 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
             }
             jobList.forEach { it.join() }
         }
+
+        return ConflictProcessResult(totalNumberOfFilesWithConflict.get())
     }
 
     private suspend fun processChunk(
@@ -62,6 +67,7 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
                     val mergeResult =
                         merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
                     conflictWriter.addConflict(repository, commit, mergeResult)
+                    totalNumberOfFilesWithConflict.addAndGet(mergeResult.size)
                 }
             } catch (e: Exception) {
                 LOG.error("Error while processing commit ${commit.name}", e)

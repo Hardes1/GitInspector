@@ -1,6 +1,7 @@
 package repo
 
 import data.ConflictOptionContext
+import data.ConflictProcessResult
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -10,14 +11,17 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
     GitRepositoryProcessor {
     private val repositoryProcessorList = getRepositoryProcessorList()
 
-    override fun run() {
+    override fun processConflicts() : ConflictProcessResult {
+        var totalConflictResult = ConflictProcessResult()
         repositoryProcessorList.forEach {
             try {
-                it.run()
+                val conflictResult = it.processConflicts()
+                totalConflictResult = conflictResult.concat(totalConflictResult)
             } catch (e: Exception) {
                 LOG.error("Exception during handling the repo", e)
             }
         }
+        return totalConflictResult
     }
 
     private fun getRepositoryProcessorList(): List<GitRepositoryProcessor> {
