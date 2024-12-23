@@ -44,7 +44,8 @@ class Main : CliktCommand() {
         )
         val processor = GitRepositoryProcessor.create(context)
         val result = processor.processConflicts()
-        LOG.info("Total number of files with conflicts {}:", result.numberOfConflicts)
+        LOG.info("Total number of files with conflicts {}:", result.numberOfFilesWithConflicts)
+        LOG.info("Total number of chunks with conflicts {}:", result.numberOfConflictingChunks)
     }
 
 }

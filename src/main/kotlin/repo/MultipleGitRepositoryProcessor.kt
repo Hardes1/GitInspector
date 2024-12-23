@@ -19,6 +19,7 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
                 totalConflictResult = conflictResult.concat(totalConflictResult)
             } catch (e: Exception) {
                 LOG.error("Exception during handling the repo", e)
+            } finally {
             }
         }
         return totalConflictResult

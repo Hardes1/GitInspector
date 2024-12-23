@@ -7,8 +7,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.diff.Sequence
 import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.merge.MergeChunk
+import org.eclipse.jgit.merge.MergeResult
 import org.eclipse.jgit.merge.MergeStrategy
 import org.eclipse.jgit.merge.ResolveMerger
 import org.eclipse.jgit.revwalk.RevCommit
@@ -22,10 +25,12 @@ import kotlin.math.min
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val MAX_NUMBER_OF_TREADS = 32
+private const val CONFLICT_TYPES_NUMBER = 3
 
 class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
     private val totalNumberOfFilesWithConflict = AtomicInteger(0)
+    private val totalNumberOfConflictingChunks = AtomicInteger(0)
 
     fun execute(): ConflictProcessResult {
         val git = Git.open(File(repositoryPath.pathString))
@@ -46,7 +51,7 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
             jobList.forEach { it.join() }
         }
 
-        return ConflictProcessResult(totalNumberOfFilesWithConflict.get())
+        return ConflictProcessResult(totalNumberOfFilesWithConflict.get(), totalNumberOfConflictingChunks.get())
     }
 
     private suspend fun processChunk(
@@ -67,11 +72,25 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
                     val mergeResult =
                         merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
                     conflictWriter.addConflict(repository, commit, mergeResult)
+                    addNumberOfConflictingChunks(mergeResult)
                     totalNumberOfFilesWithConflict.addAndGet(mergeResult.size)
                 }
             } catch (e: Exception) {
                 LOG.error("Error while processing commit ${commit.name}", e)
             }
+        }
+    }
+
+    private fun addNumberOfConflictingChunks(mergeResultMap: Map<String, MergeResult<out Sequence>>) {
+        mergeResultMap.values.forEach { mergeResult ->
+            var numberOfConflictingChunks = 0
+            for (element in mergeResult) {
+                if (element != null && element.conflictState != MergeChunk.ConflictState.NO_CONFLICT) {
+                    numberOfConflictingChunks++
+                }
+            }
+            check(numberOfConflictingChunks % CONFLICT_TYPES_NUMBER == 0) { "Number of conflicting chunks should be divisible by 3, got $numberOfConflictingChunks" }
+            totalNumberOfConflictingChunks.addAndGet(numberOfConflictingChunks / CONFLICT_TYPES_NUMBER)
         }
     }
 

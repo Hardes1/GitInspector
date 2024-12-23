@@ -16,7 +16,8 @@ abstract class SingleGitRepositoryProcessor(private val context : ConflictOption
         LOG.info("Searching conflicts")
         try {
             val result = searcher.execute()
-            LOG.info("Total number of files with conflicts: {}", result.numberOfConflicts)
+            LOG.info("Total number of files with conflicts: {}", result.numberOfFilesWithConflicts)
+            LOG.info("Total number of conflicting chunks: {}", result.numberOfConflictingChunks)
             return result
         } finally {
             if (context.shouldPrune) {
