@@ -20,6 +20,8 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
             } catch (e: Exception) {
                 LOG.error("Exception during handling the repo", e)
             } finally {
+                LOG.info("All files with conflicts: {}", totalConflictResult.numberOfFilesWithConflicts)
+                LOG.info("All Chunks with conflicts: {}", totalConflictResult.numberOfConflictingChunks)
             }
         }
         return totalConflictResult
