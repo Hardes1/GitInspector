@@ -51,7 +51,7 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
             jobList.forEach { it.join() }
         }
 
-        return ConflictProcessResult(totalNumberOfFilesWithConflict.get(), totalNumberOfConflictingChunks.get())
+        return ConflictProcessResult(totalNumberOfFilesWithConflict.get(), totalNumberOfConflictingChunks.get(), 1)
     }
 
     private suspend fun processChunk(

@@ -22,6 +22,7 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
             } finally {
                 LOG.info("All files with conflicts: {}", totalConflictResult.numberOfFilesWithConflicts)
                 LOG.info("All Chunks with conflicts: {}", totalConflictResult.numberOfConflictingChunks)
+                LOG.info("All processed repositories: {}", totalConflictResult.numberOfSuccessfulGitRepositories)
             }
         }
         return totalConflictResult
