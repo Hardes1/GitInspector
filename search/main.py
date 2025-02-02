@@ -36,5 +36,5 @@ if __name__ == '__main__':
             repo_set.add(item["repository"]["html_url"])
         i += 1
     print(*repo_set, sep='\n')
-    with open('result.txt', 'w') as f:
+    with open('repositories-github.txt', 'w') as f:
         f.write('\n'.join(repo_set))
