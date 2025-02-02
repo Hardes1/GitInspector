@@ -44,6 +44,7 @@ bin/
 ### Mac OS ###
 .DS_Store
 /data/
+/data2/
 /repositories/
 /logs/
 /examples/

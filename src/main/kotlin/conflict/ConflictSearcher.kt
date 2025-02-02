@@ -42,7 +42,7 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
             val jobList: MutableList<Job> = mutableListOf()
             val iteration = AtomicInteger(0)
             if (mergeCommitList.isEmpty()) return@runBlocking
-            mergeCommitList.chunked(mergeCommitList.size / min(mergeCommitList.size, MAX_NUMBER_OF_TREADS)).forEach { chunk ->
+            mergeCommitList.forEach { chunk ->
                 val job = launch(Dispatchers.Default) {
                     processChunk(chunk, repository, iteration, mergeCommitList.size)
                 }
@@ -55,29 +55,27 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
     }
 
     private suspend fun processChunk(
-        commitList: List<RevCommit>,
+        commit: RevCommit,
         repository: Repository,
         step: AtomicInteger,
         totalSize: Int
     ) {
-        commitList.forEach { commit ->
-            LOG.info("Processing ${step.incrementAndGet()} out $totalSize commits.")
-            LOG.debug("Name: {}, Message: {}", commit.name, commit.fullMessage)
-            val (leftParent, rightParent) = getParentObjects(commit)
-            val merger =
-                MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
-            try {
-                if (!merger.merge(leftParent, rightParent)) {
-                    LOG.debug("Merge conflict found")
-                    val mergeResult =
-                        merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
-                    conflictWriter.addConflict(repository, commit, mergeResult)
-                    addNumberOfConflictingChunks(mergeResult)
-                    totalNumberOfFilesWithConflict.addAndGet(mergeResult.size)
-                }
-            } catch (e: Exception) {
-                LOG.error("Error while processing commit ${commit.name}", e)
+        LOG.info("Processing ${step.incrementAndGet()} out $totalSize commits.")
+        LOG.debug("Name: {}, Message: {}", commit.name, commit.fullMessage)
+        val (leftParent, rightParent) = getParentObjects(commit)
+        val merger =
+            MergeStrategy.RECURSIVE.newMerger(repository, true) as? ResolveMerger ?: error("Cannot create merger")
+        try {
+            if (!merger.merge(leftParent, rightParent)) {
+                LOG.debug("Merge conflict found")
+                val mergeResult =
+                    merger.mergeResults.filter { it.key in merger.unmergedPaths && context.filter?.matches(it.key) != false }
+                conflictWriter.addConflict(repository, commit, mergeResult)
+                addNumberOfConflictingChunks(mergeResult)
+                totalNumberOfFilesWithConflict.addAndGet(mergeResult.size)
             }
+        } catch (e: Exception) {
+            LOG.error("Error while processing commit ${commit.name}", e)
         }
     }
 
