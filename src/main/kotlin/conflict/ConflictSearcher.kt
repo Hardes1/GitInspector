@@ -24,7 +24,6 @@ import kotlin.math.min
 
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
-private const val MAX_NUMBER_OF_TREADS = 32
 private const val CONFLICT_TYPES_NUMBER = 3
 
 class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
