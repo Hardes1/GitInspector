@@ -20,11 +20,11 @@ import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.pathString
-import kotlin.math.min
 
 private const val MERGE_COMMIT_PARENT_COUNT = 2
 private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val CONFLICT_TYPES_NUMBER = 3
+private const val MAX_NUMBER_OF_COMMITS = 350000
 
 class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
@@ -36,14 +36,19 @@ class ConflictSearcher(private val repositoryPath: Path, private val context : C
         val repository = git.repository
         runBlocking {
             val mergeCommitList = git.log().call().filter { it.parentCount == MERGE_COMMIT_PARENT_COUNT }
-            LOG.info("Found ${mergeCommitList.size} merge commits")
+            val size = mergeCommitList.size
+            LOG.info("Found $size merge commits")
+
+            if (size > MAX_NUMBER_OF_COMMITS) {
+                error("Too many commits: $size")
+            }
 
             val jobList: MutableList<Job> = mutableListOf()
             val iteration = AtomicInteger(0)
             if (mergeCommitList.isEmpty()) return@runBlocking
             mergeCommitList.forEach { chunk ->
                 val job = launch(Dispatchers.Default) {
-                    processChunk(chunk, repository, iteration, mergeCommitList.size)
+                    processChunk(chunk, repository, iteration, size)
                 }
                 jobList.add(job)
             }
