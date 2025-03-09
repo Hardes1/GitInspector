@@ -18,7 +18,7 @@ abstract class SingleGitRepositoryProcessor(private val context : ProcessOptionC
             SearchType.CONFLICT -> ConflictSearcher(path, context)
             SearchType.DIFFERENCE -> DiffSearcher(path, context)
         }
-        LOG.info("Searching conflicts")
+        LOG.info("Searching ${context.type}")
         try {
             val result = searcher.execute()
             result.log(LOG, false)

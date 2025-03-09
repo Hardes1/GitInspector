@@ -5,7 +5,7 @@ import data.ProcessedCommitData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.diff.DiffFormatter
 import org.eclipse.jgit.revwalk.RevCommit
@@ -20,7 +20,7 @@ class DiffWriter(private val writer: ContentWriter) {
                 formatter.format(diff)
                 val diffContent = getDiffContent(out)
                 val content = ProcessedCommitData(diffContent, null)
-                withContext(Dispatchers.IO) {
+                launch(Dispatchers.IO) {
                     writer.writeContent( Path.of(diff.newPath), commit, listOf(content))
                 }
             }

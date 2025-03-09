@@ -16,8 +16,8 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
 
     override fun process() : ProcessResult {
         var totalConflictResult = when(context.type) {
-            SearchType.CONFLICT -> DiffProcessResult()
-            SearchType.DIFFERENCE -> ConflictProcessResult()
+            SearchType.CONFLICT -> ConflictProcessResult()
+            SearchType.DIFFERENCE -> DiffProcessResult()
         }
         repositoryProcessorList.forEach {
             try {
