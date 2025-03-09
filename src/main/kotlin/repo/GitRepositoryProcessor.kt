@@ -3,10 +3,11 @@ package repo
 import data.ConflictOptionContext
 import data.ConflictProcessResult
 import data.InputOptionContext
+import data.ProcessResult
 
 
 interface GitRepositoryProcessor {
-    fun processConflicts(): ConflictProcessResult
+    fun process(): ProcessResult
 
     companion object {
         fun create(inputContext: InputOptionContext): GitRepositoryProcessor {

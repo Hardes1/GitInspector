@@ -1,8 +1,8 @@
 package data
 
-import java.util.function.Predicate
 
 data class ConflictOptionContext(
+    val type: SearchType,
     val isBaseIncluded: Boolean,
     val isGroupFiletype: Boolean,
     val shouldPrune: Boolean,
@@ -11,6 +11,7 @@ data class ConflictOptionContext(
     companion object {
         fun from(inputContext: InputOptionContext): ConflictOptionContext {
             return ConflictOptionContext(
+                type = inputContext.type,
                 isBaseIncluded = inputContext.isBaseIncluded,
                 isGroupFiletype = inputContext.isGroupFiletype,
                 shouldPrune = inputContext.shouldPrune,

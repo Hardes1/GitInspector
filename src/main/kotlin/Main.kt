@@ -1,15 +1,16 @@
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.enum
 import data.InputOptionContext
+import data.SearchType
 import org.slf4j.LoggerFactory
 import repo.GitRepositoryProcessor
 
-private val LOG = LoggerFactory.getLogger(Main::class.java)
-
 class Main : CliktCommand() {
-
+    val type : SearchType by option("--type", "-t", help = "Type of conflicts to execute").enum<SearchType>().default(SearchType.CONFLICT)
     val localPath: String? by option("--path", "-p", help = "Local path to git repository")
     val url: String? by option("--url", "-u", help = "URL to git repository in github")
     val isIncludeBase: Boolean by option(
@@ -20,7 +21,7 @@ class Main : CliktCommand() {
     val isGroupFiletype: Boolean by option(
         "--group-filetype",
         "-g",
-        help = "Group conflicts by filetype"
+        help = "Group results by filetype"
     ).flag(default = false)
 
     val shouldPrune: Boolean by option(
@@ -34,6 +35,7 @@ class Main : CliktCommand() {
 
     override fun run() {
         val context = InputOptionContext(
+            type = type,
             isBaseIncluded = isIncludeBase,
             isGroupFiletype = isGroupFiletype,
             shouldPrune = shouldPrune,
@@ -43,9 +45,7 @@ class Main : CliktCommand() {
             filter = filter
         )
         val processor = GitRepositoryProcessor.create(context)
-        val result = processor.processConflicts()
-        LOG.info("Total number of files with conflicts {}:", result.numberOfFilesWithConflicts)
-        LOG.info("Total number of chunks with conflicts {}:", result.numberOfConflictingChunks)
+        processor.process()
     }
 
 }

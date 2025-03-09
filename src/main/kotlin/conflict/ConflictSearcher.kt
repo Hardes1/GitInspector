@@ -26,12 +26,12 @@ private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val CONFLICT_TYPES_NUMBER = 3
 private const val MAX_NUMBER_OF_COMMITS = 350000
 
-class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) {
+class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) : DataSearcher {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
     private val totalNumberOfFilesWithConflict = AtomicInteger(0)
     private val totalNumberOfConflictingChunks = AtomicInteger(0)
 
-    fun execute(): ConflictProcessResult {
+    override fun execute(): ConflictProcessResult {
         val git = Git.open(File(repositoryPath.pathString))
         val repository = git.repository
         runBlocking {

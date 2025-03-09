@@ -2,22 +2,26 @@ package repo
 
 import conflict.ConflictSearcher
 import data.ConflictOptionContext
-import data.ConflictProcessResult
+import data.ProcessResult
+import data.SearchType
+import diff.DiffSearcher
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
 private val LOG = LoggerFactory.getLogger(SingleGitRepositoryProcessor::class.java)
 
 abstract class SingleGitRepositoryProcessor(private val context : ConflictOptionContext) : GitRepositoryProcessor {
-    override fun processConflicts() : ConflictProcessResult {
+    override fun process() : ProcessResult {
         LOG.info("Fetching repository")
         val path = fetch()
-        val searcher = ConflictSearcher(path, context)
+        val searcher = when(context.type) {
+            SearchType.CONFLICT -> ConflictSearcher(path, context)
+            SearchType.DIFFERENCE -> DiffSearcher()
+        }
         LOG.info("Searching conflicts")
         try {
             val result = searcher.execute()
-            LOG.info("Total number of files with conflicts: {}", result.numberOfFilesWithConflicts)
-            LOG.info("Total number of conflicting chunks: {}", result.numberOfConflictingChunks)
+            result.log(LOG, false)
             return result
         } finally {
             if (context.shouldPrune) {

@@ -2,6 +2,9 @@ package repo
 
 import data.ConflictOptionContext
 import data.ConflictProcessResult
+import data.DiffProcessResult
+import data.ProcessResult
+import data.SearchType
 import org.slf4j.LoggerFactory
 import java.io.File
 
@@ -11,18 +14,20 @@ class MultipleGitRepositoryProcessor(private val path: String, private val conte
     GitRepositoryProcessor {
     private val repositoryProcessorList = getRepositoryProcessorList()
 
-    override fun processConflicts() : ConflictProcessResult {
-        var totalConflictResult = ConflictProcessResult()
+    override fun process() : ProcessResult {
+        var totalConflictResult = when(context.type) {
+            SearchType.CONFLICT -> DiffProcessResult()
+            SearchType.DIFFERENCE -> ConflictProcessResult()
+        }
         repositoryProcessorList.forEach {
             try {
-                val conflictResult = it.processConflicts()
+                val conflictResult = it.process()
                 totalConflictResult = conflictResult.concat(totalConflictResult)
             } catch (e: Exception) {
                 LOG.error("Exception during handling the repo", e)
             } finally {
-                LOG.info("All files with conflicts: {}", totalConflictResult.numberOfFilesWithConflicts)
-                LOG.info("All Chunks with conflicts: {}", totalConflictResult.numberOfConflictingChunks)
-                LOG.info("All processed repositories: {}", totalConflictResult.numberOfSuccessfulGitRepositories)
+                totalConflictResult.log(LOG, true)
+
             }
         }
         return totalConflictResult
