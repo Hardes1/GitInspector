@@ -1,6 +1,6 @@
 package conflict
 
-import data.ConflictOptionContext
+import data.ProcessOptionContext
 import data.ConflictProcessResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,6 +16,7 @@ import org.eclipse.jgit.merge.MergeStrategy
 import org.eclipse.jgit.merge.ResolveMerger
 import org.eclipse.jgit.revwalk.RevCommit
 import org.slf4j.LoggerFactory
+import common.DataSearcher
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
@@ -26,7 +27,7 @@ private val LOG = LoggerFactory.getLogger(ConflictSearcher::class.java)
 private const val CONFLICT_TYPES_NUMBER = 3
 private const val MAX_NUMBER_OF_COMMITS = 350000
 
-class ConflictSearcher(private val repositoryPath: Path, private val context : ConflictOptionContext) : DataSearcher {
+class ConflictSearcher(repositoryPath: Path, context : ProcessOptionContext) : DataSearcher(repositoryPath, context) {
     private val conflictWriter = ConflictWriter.create(context, repositoryPath)
     private val totalNumberOfFilesWithConflict = AtomicInteger(0)
     private val totalNumberOfConflictingChunks = AtomicInteger(0)

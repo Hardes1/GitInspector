@@ -1,6 +1,6 @@
 package conflict
 
-import data.RevisionInfo
+import data.ProcessedCommitData
 import data.TraverserOptionContext
 import data.WriterOptionContext
 import org.eclipse.jgit.diff.RawText
@@ -22,7 +22,7 @@ private val LOG = LoggerFactory.getLogger(ConflictWriter::class.java)
 class ConflictTraverser(private val context: TraverserOptionContext) {
     fun getRevisionsToWrite(repository: Repository,
                     commit: RevCommit,
-                    mergeResult: Map<String, MergeResult<out Sequence>>): Map<Path, List<RevisionInfo>> {
+                    mergeResult: Map<String, MergeResult<out Sequence>>): Map<Path, List<ProcessedCommitData>> {
         val resultRevisionInfoMap = getResultRevisionInfoMap(repository, commit.tree, mergeResult.keys)
         val conflictRevisionInfoMap = getConflictRevisionInfoMap(mergeResult)
         val allRevisionInfoMap = resultRevisionInfoMap.mapValues { (key, value) ->
@@ -36,8 +36,8 @@ class ConflictTraverser(private val context: TraverserOptionContext) {
         repository: Repository,
         tree: RevTree,
         paths: Set<String>
-    ): Map<String, RevisionInfo> {
-        val result = mutableMapOf<String, RevisionInfo>()
+    ): Map<String, ProcessedCommitData> {
+        val result = mutableMapOf<String, ProcessedCommitData>()
         TreeWalk(repository).use { treeWalk ->
             treeWalk.addTree(tree)
             treeWalk.isRecursive = true
@@ -47,7 +47,7 @@ class ConflictTraverser(private val context: TraverserOptionContext) {
                 if (pathString !in paths) continue
                 val loader = repository.open(treeWalk.getObjectId(0))
                 val content = String(loader.bytes)
-                result.put(pathString, RevisionInfo(content, RevisionType.RESULT))
+                result.put(pathString, ProcessedCommitData(content, RevisionType.RESULT.prefix))
             }
         }
         return result
@@ -55,12 +55,12 @@ class ConflictTraverser(private val context: TraverserOptionContext) {
 
     private fun getConflictRevisionInfoMap(
         mergeResults: Map<String, MergeResult<out Sequence>>
-    ): Map<String, RevisionInfo> {
-        val result = mutableMapOf<String, RevisionInfo>()
+    ): Map<String, ProcessedCommitData> {
+        val result = mutableMapOf<String, ProcessedCommitData>()
         for ((pathString, mergeResult) in mergeResults) {
             val sequences = mergeResult.sequences.mapNotNull { it as? RawText }
             val fileContent = getFileContent(mergeResult, sequences)
-            result.put(pathString, RevisionInfo(fileContent, RevisionType.CONFLICT))
+            result.put(pathString, ProcessedCommitData(fileContent, RevisionType.CONFLICT.prefix))
         }
         return result
     }

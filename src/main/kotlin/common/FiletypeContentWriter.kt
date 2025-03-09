@@ -1,9 +1,9 @@
-package conflict
+package common
 
-import data.RevisionInfo
-import data.WriterOptionContext
+import data.ProcessedCommitData
 import org.eclipse.jgit.revwalk.RevCommit
 import org.slf4j.LoggerFactory
+import util.PathUtils
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -12,14 +12,15 @@ import kotlin.io.path.Path
 import kotlin.io.path.extension
 import kotlin.io.path.pathString
 
-private val LOG = LoggerFactory.getLogger(FiletypeConflictWriter::class.java)
-class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path) : ConflictWriter(context, repositoryPath) {
+private val LOG = LoggerFactory.getLogger(FiletypeContentWriter::class.java)
+
+class FiletypeContentWriter(repositoryPath: Path) : ContentWriter(repositoryPath) {
     private val filesMap: ConcurrentMap<String, Int> = ConcurrentHashMap()
 
-    override fun writeConflict(
+    override fun writeContent(
         path: Path,
         commit: RevCommit,
-        revisionInfoList: List<RevisionInfo>
+        processedCommitDataList: List<ProcessedCommitData>
     ) {
         val extension = path.extension.replace('.', '-')
         if (extension.isEmpty()) {
@@ -28,8 +29,8 @@ class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path)
         }
         val number = getCurrentVersion(extension)
 
-        for (revisionInfo in revisionInfoList) {
-            val file = createDataFile(path, extension, number, revisionInfo.revisionType)
+        for (revisionInfo in processedCommitDataList) {
+            val file = createDataFile(path, extension, number, revisionInfo.filePrefix)
             file.writeText(revisionInfo.content)
         }
     }
@@ -38,9 +39,9 @@ class FiletypeConflictWriter(context: WriterOptionContext, repositoryPath: Path)
         return filesMap.compute(extension) { _, v -> (v ?: 0) + 1 } ?: 0
     }
 
-    private fun createDataFile(path: Path, extensionName : String, number: Int, revisionType: RevisionType) : File {
+    private fun createDataFile(path: Path, extensionName : String, number: Int, prefix: String?) : File {
         val filename = path.fileName
-        val fullPath = Path(extensionName, "file${number}", revisionType.getFilenameWithRevisionType(filename.pathString))
+        val fullPath = Path(extensionName, "file${number}", PathUtils.getFilenameWithPrefix(prefix, filename.pathString))
         return createDataFile(fullPath)
     }
 }

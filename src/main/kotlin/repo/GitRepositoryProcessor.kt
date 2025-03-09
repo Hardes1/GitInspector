@@ -1,7 +1,6 @@
 package repo
 
-import data.ConflictOptionContext
-import data.ConflictProcessResult
+import data.ProcessOptionContext
 import data.InputOptionContext
 import data.ProcessResult
 
@@ -11,7 +10,7 @@ interface GitRepositoryProcessor {
 
     companion object {
         fun create(inputContext: InputOptionContext): GitRepositoryProcessor {
-            val conflictContext = ConflictOptionContext.from(inputContext)
+            val conflictContext = ProcessOptionContext.from(inputContext)
             return if (inputContext.localPath != null && inputContext.url == null && inputContext.multiplePath == null) {
                 LocalGitRepositoryProcessor(inputContext.localPath, conflictContext)
             } else if (inputContext.url != null && inputContext.localPath == null && inputContext.multiplePath == null) {

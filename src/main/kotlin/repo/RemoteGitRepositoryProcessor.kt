@@ -1,7 +1,7 @@
 package repo
 
 
-import data.ConflictOptionContext
+import data.ProcessOptionContext
 import org.eclipse.jgit.api.Git
 import org.slf4j.LoggerFactory
 import util.GitUtils
@@ -11,7 +11,7 @@ import kotlin.io.path.Path
 
 private val LOG = LoggerFactory.getLogger(RemoteGitRepositoryProcessor::class.java)
 
-class RemoteGitRepositoryProcessor(val url: String, context: ConflictOptionContext) : SingleGitRepositoryProcessor(context) {
+class RemoteGitRepositoryProcessor(val url: String, context: ProcessOptionContext) : SingleGitRepositoryProcessor(context) {
     override fun fetch(): Path {
         if (!URIUtils.isValid(url)) throw IllegalArgumentException("URL is invalid")
         val repositoryData = GitUtils.getRepositoryData(url)

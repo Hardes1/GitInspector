@@ -12,4 +12,8 @@ object PathUtils {
         val conflictDirPath = Path(".", "data", directoryName.pathString, repoName.pathString, "conflicts")
         return conflictDirPath
     }
+
+    fun getFilenameWithPrefix(prefix: String?, filename: String): String {
+        return if (prefix == null) filename else "$prefix-$filename"
+    }
 }

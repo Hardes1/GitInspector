@@ -1,7 +1,7 @@
 package data
 
 
-data class ConflictOptionContext(
+data class ProcessOptionContext(
     val type: SearchType,
     val isBaseIncluded: Boolean,
     val isGroupFiletype: Boolean,
@@ -9,8 +9,8 @@ data class ConflictOptionContext(
     val filter: Regex?
 ) {
     companion object {
-        fun from(inputContext: InputOptionContext): ConflictOptionContext {
-            return ConflictOptionContext(
+        fun from(inputContext: InputOptionContext): ProcessOptionContext {
+            return ProcessOptionContext(
                 type = inputContext.type,
                 isBaseIncluded = inputContext.isBaseIncluded,
                 isGroupFiletype = inputContext.isGroupFiletype,

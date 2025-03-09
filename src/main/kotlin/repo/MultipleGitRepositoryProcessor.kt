@@ -1,6 +1,6 @@
 package repo
 
-import data.ConflictOptionContext
+import data.ProcessOptionContext
 import data.ConflictProcessResult
 import data.DiffProcessResult
 import data.ProcessResult
@@ -10,7 +10,7 @@ import java.io.File
 
 private val LOG = LoggerFactory.getLogger(GitRepositoryProcessor::class.java)
 
-class MultipleGitRepositoryProcessor(private val path: String, private val context: ConflictOptionContext) :
+class MultipleGitRepositoryProcessor(private val path: String, private val context: ProcessOptionContext) :
     GitRepositoryProcessor {
     private val repositoryProcessorList = getRepositoryProcessorList()
 
