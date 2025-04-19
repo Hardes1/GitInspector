@@ -1,5 +1,7 @@
 plugins {
     kotlin("jvm") version "2.0.21"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+    application
 }
 
 group = "org.example"
@@ -16,6 +18,10 @@ dependencies {
     implementation("org.slf4j:slf4j-api:1.7.30")
     runtimeOnly("org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+}
+
+application {
+    mainClass.set("MainKt")
 }
 
 tasks.test {
