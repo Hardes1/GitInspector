@@ -9,14 +9,14 @@ import data.InputOptionContext
 import data.SearchType
 import repo.GitRepositoryProcessor
 
-class Main : CliktCommand("inspect") {
+class Main : CliktCommand() {
     override fun help(context: Context): String {
         return """
             Git Inspector is a tool that helps analyze Git repositories. It stores all the differences or conflicts of
             some repository respecting given format and filters. 
             """.trimIndent()
     }
-    val type : SearchType by option("--type", "-t", help = "Type of conflicts to execute").enum<SearchType>().default(SearchType.CONFLICT)
+    val type : SearchType by option("--type", "-t", help = "Type of info to inspect").enum<SearchType>().default(SearchType.CONFLICT)
     val localPath: String? by option("--path", "-p", help = "Local path to git repository")
     val url: String? by option("--url", "-u", help = "URL to git repository in github")
     val isIncludeBase: Boolean by option(
