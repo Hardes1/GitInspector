@@ -31,18 +31,19 @@ def read_data(file_path) -> list[CompressionStatistics]:
 
 def main():
     semantic_diff_list = read_data("semantic-diff.txt")
-    build_compression_ratio_graph(semantic_diff_list, False)
+    build_compression_ratio_graph(semantic_diff_list, False, "Semantic difference compression ratio")
     semantic_merge_list = read_data("semantic-merge.txt")
     build_compression_ratio_graph(semantic_merge_list, True, 'Semantic merge compression ratio')
 
 
 def build_compression_ratio_graph(semantic_diff_list, reverse: bool, title: str):
     ratios = [stat.after / stat.before for stat in semantic_diff_list if stat.before != 0]
+    print(list(filter(lambda x: x.after > x.before, semantic_diff_list)))
     ratios_sorted = sorted(ratios, reverse=reverse)
     mean_ratio = np.mean(ratios_sorted)
     median_ratio = np.median(ratios_sorted)
-    q1 = np.percentile(ratios_sorted, 25)  # 1-й квартиль (25%)
-    q3 = np.percentile(ratios_sorted, 75)  # 3-й квартиль (75%)
+    q1 = np.percentile(ratios_sorted, 25)
+    q3 = np.percentile(ratios_sorted, 75)
     if reverse:
         q1, q3 = q3, q1
     sample_size = len(ratios)  # Размер выборки
