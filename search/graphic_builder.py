@@ -33,7 +33,7 @@ def main():
     semantic_diff_list = read_data("semantic-diff.txt")
     build_compression_ratio_graph(semantic_diff_list, False, "Semantic difference compression ratio", 'ratio', r'$CR_{repository} = \frac{LOC_{SemanticHighlighting}}{LOC_{DefaultHighlighting}}$', 0.1, 0.55)
     semantic_merge_list = read_data("semantic-merge.txt")
-    build_compression_ratio_graph(semantic_merge_list, True, 'Semantic merge automatic conflict resolution ratio', 'Ratio', r'$AORR_{repository} = \frac{|ResolvableConflicts|}{|AllConflicts|}$', 0.6, 0.49)
+    build_compression_ratio_graph(semantic_merge_list, True, 'Semantic merge automatic conflict resolution ratio', 'Ratio', r'$ACRR_{repository} = \frac{|ResolvableConflicts|}{|AllConflicts|}$', 0.6, 0.49)
 
 
 def build_compression_ratio_graph(semantic_diff_list, reverse: bool, title: str, y_label: str, metric: str, ypos: float, xpos: float):
